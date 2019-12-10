@@ -1,10 +1,9 @@
 import "xterm/css/xterm.css";
 
-import { h, Component, render } from "preact";
+import { h, render } from "preact";
+import { useEffect, useState, useRef, useCallback } from "preact/hooks";
 
-// @ts-ignore
 import WasmTerminal, {
-  // @ts-ignore
   fetchCommandFromWAPM
   // @ts-ignore
 } from "@wasmer/wasm-terminal";
@@ -69,15 +68,18 @@ const fetchCommandHandler = async (
 // const processWorkerUrl = (document.getElementById("worker") as HTMLImageElement)
 //   .src;
 
-class WasmTerminalComponent extends Component {
-  container: HTMLElement | null;
-  wasmTerminal: WasmTerminal;
-  wasmFs: WasmFs;
+// container: HTMLElement | null;
+// wasmTerminal: WasmTerminal;
+// wasmFs: WasmFs;
 
-  constructor() {
-    super();
-    this.wasmFs = new WasmFs();
-    this.wasmTerminal = new WasmTerminal({
+function WasmTerminalComponent() {
+  const ref = useRef<HTMLElement>(null);
+  const [terminal, setTerminal] = useState(null);
+  // container: HTMLElement | null;
+
+  useEffect(() => {
+    const wasmFs = new WasmFs();
+    const wasmTerminal = new WasmTerminal({
       fetchCommand: fetchCommandHandler,
       processWorkerUrl: "/worker.js",
       wasmFs: this.wasmFs
@@ -87,64 +89,49 @@ class WasmTerminalComponent extends Component {
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
     const deser = new Buffer(TINY_PNG, "base64");
     const contents = Uint8Array.from(deser);
-    this.wasmFs.volume.writeFileSync("/tiny.png", contents);
+    wasmFs.volume.writeFileSync("/tiny.png", contents);
 
-    this.container = null;
-  }
+    wasmTerminal.print("Hello Open");
 
-  componentDidMount() {
-    if (!this.container) {
-      return;
+    if (ref.current) {
+      wasmTerminal.open(ref.current);
+      wasmTerminal.fit();
+      wasmTerminal.focus();
     }
-    this.wasmTerminal.print("Hello Open ");
+    setTerminal(wasmTerminal);
+    return () => {
+      wasmTerminal.destroy();
+    };
+  }, []);
 
-    this.wasmTerminal.open(this.container);
-    this.wasmTerminal.fit();
-    this.wasmTerminal.focus();
-  }
+  const printHello = useCallback(() => {
+    terminal.print("hello");
+  }, [terminal]);
 
-  componentWillUnmount() {
-    this.wasmTerminal.destroy();
-  }
+  const runCowsayHello = useCallback(() => {
+    terminal.runCommand("cowsay hello");
+  }, [terminal]);
 
-  printHello() {
-    this.wasmTerminal.print("hello");
-  }
+  const runViw = useCallback(() => {
+    terminal.runCommand("viu /tiny.png");
+  }, [terminal]);
 
-  runCowsayHello() {
-    this.wasmTerminal.runCommand("cowsay hello");
-  }
-
-  runViu() {
-    this.wasmTerminal.runCommand("viu /tiny.png");
-  }
-
-  render() {
-    return (
-      <div id="terminal-component">
-        <div>
-          <button onClick={() => this.printHello()}>Print "hello"</button>
-          <button onClick={() => this.runCowsayHello()}>
-            Run Cowsay Hello
-          </button>
-          <button onClick={() => this.runViu()}>Run Viu</button>
-          <br />
-          <br />
-        </div>
-        <div id="terminal-container" ref={ref => (this.container = ref)} />
+  return (
+    <div>
+      <div>
+        <button onClick={printHello}>Print "hello"</button>
+        <button onClick={runCowsayHello}>Run Cowsay Hello</button>
+        <button onClick={runViw}>Run Viu</button>
+        <br />
       </div>
-    );
-  }
+      <div ref={ref} />
+    </div>
+  );
 }
 
 function App() {
-  // render() {
-  // return <div>Hello</div>;
   return <WasmTerminalComponent />;
-  // }
 }
 
 const rootElement = document.getElementById("root");
-// if (rootElement) {
 render(<App />, rootElement);
-// }
